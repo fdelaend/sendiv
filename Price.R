@@ -1,27 +1,32 @@
 require(lattice)
+
+i <- 1 #study considered
+ResultsFolder <- "/Users/frederik/Documents/results/sendiv/" #results folder
+
+
 #-1. Parameters #####################################################################
-Data <- "~/Dropbox/sendiv/Hartgers/Data/phytoplankton.txt" #raw data
-CountCols <- 4 #counts in raw data start at this column
-print(paste("ATTENTION: Data in",Data,"are assumed to be counts from column",CountCols,"to last column"))
-VolumeData <- "~/Dropbox/sendiv/Hartgers et al/Biovolumes/phytoplankton/PVolumes.txt" #volume or weight per individual (cell). Need to have exactly same names as in raw data
-Time <- "Week" #Name used to indicate time in raw data
-Time_s<- 5.0 #selected time point for analysis
-Treat <- "Treatment" #Name used to indicate trt level in raw data
-ControlTreat <- 1 #Code used for control treatment
+Folder            <- "~/Dropbox/sendiv/Hartgers/" #Folder with biovolume and count data
+CountCols         <- 4                            #Counts in raw data start at this column
+Time              <- "Week"                       #Name used to indicate time in count data
+StartDates        <- c(1)                         #Average densities are calculated for Time>= this time
+EndDates          <- c(4)                         #...and for Time<= this time
+Treat             <- "Treatment"                  #Name used to indicate trt level in raw data
+Replicate         <- "Replicate"                  #Name used to indicate cosm in raw data
+ControlTreat      <- 1                            #Code used for control treatment
 #END Parameters #####################################################################
 
 #0. Function for partition
 Price <- function(tox, ref)
 {
-  sc <- sum(tox*ref>0) #nr of species both sites have in common
-  s  <- sum(ref>0)     #nr of species at ref site
-  s_ <- sum(tox>0)     #nr of species at tox site
-  z  <- mean(ref[which(ref>0)]) #mean function per species at ref site. Only for species that are present.
-  z_ <- mean(tox[which(tox>0)]) #mean function per species at tox site. Only for species that are present.
+  sc <- sum(tox*ref>0)                            #nr of species both sites have in common
+  s  <- sum(ref>0)                                #nr of species at ref site
+  s_ <- sum(tox>0)                                #nr of species at tox site
+  z  <- mean(ref[which(ref>0)])                   #mean function per species at ref site. Only for species that are present.
+  z_ <- mean(tox[which(tox>0)])                   #mean function per species at tox site. Only for species that are present.
 
   #re-order
-  ind<- which((tox*ref)>0) #indices of species present at both sites
-  oth<- c(1:length(ref))[-ind]#other species
+  ind<- which((tox*ref)>0)                        #indices of species present at both sites
+  oth<- c(1:length(ref))[-ind]                    #other species
   tox<- tox[c(ind,oth)]
   ref<- ref[c(ind,oth)]
 
@@ -42,38 +47,67 @@ Price <- function(tox, ref)
                       CDE=CDE)))
 }
 
-#1. Read data
-Data  <- read.delim(Data)
+#1. Read count and BioV data
+CountData  <- read.delim(paste(Folder[i],"Data/phytoplankton.txt",
+                               sep=""),
+                         header=TRUE)
+Counts <- data.matrix(CountData[,c(CountCols[i]:ncol(CountData))]) #get counts from CountData
+BioVols  <- read.delim(paste(Folder[i],"Biovolumes/phytoplankton/PVolumes.txt",
+                               sep=""))
+#Put the 'species' in BioVols in the same order as in Counts
+BioVols   <- BioVols[match(colnames(Counts), BioVols[,"Sp"]),]
 
-#2. Convert to biov: the taxon order in Data and 
-#..in biovolumes are exactly the same
-Counts <- data.matrix(Data[,c(CountCols:ncol(Data))])
-#the biovolume data
-vols   <- read.delim(VolumeData)
-#the biovolume data, in the proper order
-vols   <- vols[match(colnames(Counts), vols[,1]),]
-Volumes <- Counts %*% diag(vols[,2])
-Data[,c(CountCols:ncol(Data))] <- Volumes
+#2. Convert to biov 
+Volumes <- Counts %*% diag(BioVols[,"Norm_Volume"])
+colnames(Volumes) <- colnames(Counts)
+VolumeData <- CountData[,c(Treat[i], Time[i], Replicate[i])]
 
-#3. Get out time points and stress levels
-Data_s<- Data[which(Data[,Time]==Time_s),]
-Stress<- unique(Data_s[,Treat])
-Data_s_1 <- Data_s[which(Data_s[,Treat]==ControlTreat),c(CountCols:ncol(Data_s))] #the control data (REF site)
+#3. Make sum per genus
+Genera <- unique(as.character(BioVols[,"Genus"])) #pull out different genera
+Test <- sum(is.na(Genera)) #check for NAs
+if (Test>0) {Genera <- Genera[-which(is.na(Genera))]} #throw them out
+for (Genus in Genera)
+{
+  #the following species belong to genus
+  SpeciesGenus <- as.character(BioVols[which(BioVols[,"Genus"]==Genus),"Sp"]) 
+  #get their bioVs and sum if multiple species belong to genus
+  VolumeGenus <- Volumes[,SpeciesGenus]
+  if (length(SpeciesGenus) >1) {VolumeGenus <- rowSums(VolumeGenus)}
+  #add to VolumeData
+  VolumeData <- cbind(VolumeData, VolumeGenus)
+}
+#Now give proper names to VolumeData
+colnames(VolumeData) <- c("Treat", "Time", "Replicate", Genera)
+
+#4. Get out selected time period
+#...and identify stress levels
+Ind <- which((VolumeData[,"Time"]>=StartDates[i])&(VolumeData[,"Time"]<=EndDates[i]))
+VolumeDataSelect <- VolumeData[Ind,]
+#Make average densities over time
+Key <- paste(VolumeDataSelect$Treat,
+             VolumeDataSelect$Replicate,sep="") #to use to make averages - unique combi of cosm and treat
+VolumeDataSelect <- aggregate(VolumeDataSelect, 
+                              by=list(Key), FUN=mean)
+Stress<- unique(VolumeDataSelect[,"Treat"])
+#get control site
+Ind <- which(VolumeDataSelect[,"Treat"]==ControlTreat[i])
+VolumeDataSelectControl <- VolumeDataSelect[Ind,
+                                            c(5:ncol(VolumeDataSelect))] 
 
 #4. Loop over stress levels
 Results <- NULL
 for (l in Stress[2:length(Stress)]) #1 being the control
 {
-  ind      <- which(Data_s[,Treat]==l)
-  Data_s_l <- Data_s[ind,c(CountCols:ncol(Data_s))]
+  Ind      <- which(VolumeDataSelect[,"Treat"]==l)
+  VolumeDataSelectStress <- VolumeDataSelect[Ind,c(5:ncol(VolumeDataSelect))]
   #all possible combinations
-  Combs <- expand.grid(REF=c(1:nrow(Data_s_1)),
-                       TOX=c(1:nrow(Data_s_l)))
+  Combs <- expand.grid(REF=c(1:nrow(VolumeDataSelectControl)),
+                       TOX=c(1:nrow(VolumeDataSelectStress)))
   #loop over them
   for (r in c(1:nrow(Combs)))
   {
-    Ref <- Data_s_1[Combs[r,"REF"],]
-    Tox <- Data_s_l[Combs[r,"TOX"],]
+    Ref <- VolumeDataSelectControl[Combs[r,"REF"],]
+    Tox <- VolumeDataSelectStress[Combs[r,"TOX"],]
     #only keep species that are present in at least one site
     Keep<- which(((Ref>0)+(Tox>0))>0)
     Ref <- as.numeric(Ref[Keep])
@@ -96,7 +130,8 @@ for (l in Stress[2:length(Stress)]) #1 being the control
 colnames(Results)[1] <- "Stress"
 Results <- as.data.frame(Results)
 
-quartz("",6,6,type="pdf",file="Test.pdf")
+quartz("",6,6,type="pdf",
+       file=paste(ResultsFolder,i,"Test.pdf",sep=""))
 plot(0,0,xlim=c(min(Stress),max(Stress)+0.5), xlab="Stress intensity",
      ylab="Effect",
      ylim=c(min(Results),max(Results)+20),col="white")
