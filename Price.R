@@ -1,21 +1,22 @@
 require(lattice)
 
-i <- 1 #study considered
+i <- 4 #study considered
 ResultsFolder <- "/Users/frederik/Documents/results/sendiv/" #results folder
 
+#1. Parameters #####################################################################
+Folder            <- c("~/Dropbox/sendiv/Hartgers/",
+                       "~/Dropbox/sendiv/Brock/",
+                       "~/Dropbox/sendiv/Roessink/",
+                       "~/Dropbox/sendiv/VandenBrink/") #Folder with biovolume and count data
+CountCols         <- c(4,4,7,4)                       #Counts in raw data start at this column
+Time              <- c("Week", "week", "week", "week")            #Name used to indicate time in count data
+StartDates        <- c(1, 9, 1, 1)                      #Average densities are calculated for Time>= this time
+EndDates          <- c(4, 22, 10, 11)                     #...and for Time<= this time
+Treat             <- c("Treatment", "Treatment", "treatment", "Treatment")                  #Name used to indicate trt level in raw data
+Replicate         <- c("Replicate", "Replicate", "replica", "Replicate")                  #Name used to indicate cosm in raw data
+ControlTreat      <- c(1,1,0.000,1)                            #Code used for control treatment
 
-#-1. Parameters #####################################################################
-Folder            <- "~/Dropbox/sendiv/Hartgers/" #Folder with biovolume and count data
-CountCols         <- 4                            #Counts in raw data start at this column
-Time              <- "Week"                       #Name used to indicate time in count data
-StartDates        <- c(1)                         #Average densities are calculated for Time>= this time
-EndDates          <- c(4)                         #...and for Time<= this time
-Treat             <- "Treatment"                  #Name used to indicate trt level in raw data
-Replicate         <- "Replicate"                  #Name used to indicate cosm in raw data
-ControlTreat      <- 1                            #Code used for control treatment
-#END Parameters #####################################################################
-
-#0. Function for partition
+#2. Function for partition #####################################################################
 Price <- function(tox, ref)
 {
   sc <- sum(tox*ref>0)                            #nr of species both sites have in common
@@ -47,7 +48,7 @@ Price <- function(tox, ref)
                       CDE=CDE)))
 }
 
-#1. Read count and BioV data
+#3. Read count and BioV data #####################################################################
 CountData  <- read.delim(paste(Folder[i],"Data/phytoplankton.txt",
                                sep=""),
                          header=TRUE)
@@ -57,12 +58,12 @@ BioVols  <- read.delim(paste(Folder[i],"Biovolumes/phytoplankton/PVolumes.txt",
 #Put the 'species' in BioVols in the same order as in Counts
 BioVols   <- BioVols[match(colnames(Counts), BioVols[,"Sp"]),]
 
-#2. Convert to biov 
+#4. Convert to Biov #####################################################################
 Volumes <- Counts %*% diag(BioVols[,"Norm_Volume"])
 colnames(Volumes) <- colnames(Counts)
 VolumeData <- CountData[,c(Treat[i], Time[i], Replicate[i])]
 
-#3. Make sum per genus
+#5. Make sum per genus #####################################################################
 Genera <- unique(as.character(BioVols[,"Genus"])) #pull out different genera
 Test <- sum(is.na(Genera)) #check for NAs
 if (Test>0) {Genera <- Genera[-which(is.na(Genera))]} #throw them out
@@ -79,7 +80,7 @@ for (Genus in Genera)
 #Now give proper names to VolumeData
 colnames(VolumeData) <- c("Treat", "Time", "Replicate", Genera)
 
-#4. Get out selected time period
+#6. Get out selected time period #####################################################################
 #...and identify stress levels
 Ind <- which((VolumeData[,"Time"]>=StartDates[i])&(VolumeData[,"Time"]<=EndDates[i]))
 VolumeDataSelect <- VolumeData[Ind,]
@@ -94,7 +95,7 @@ Ind <- which(VolumeDataSelect[,"Treat"]==ControlTreat[i])
 VolumeDataSelectControl <- VolumeDataSelect[Ind,
                                             c(5:ncol(VolumeDataSelect))] 
 
-#4. Loop over stress levels
+#7. Loop over stress levels #####################################################################
 Results <- NULL
 for (l in Stress[2:length(Stress)]) #1 being the control
 {
@@ -124,7 +125,6 @@ for (l in Stress[2:length(Stress)]) #1 being the control
                        Gain=Gain))
     
   }
-  
 }
 
 colnames(Results)[1] <- "Stress"
@@ -137,18 +137,22 @@ plot(0,0,xlim=c(min(Stress),max(Stress)+0.5), xlab="Stress intensity",
      ylim=c(min(Results),max(Results)+20),col="white")
 col  <- c("black","blue","brown","orange","red","green")
 pch <- c(17,rep(1,5))
-sapply(2:7,function(x) points(Results[,1]+(x-3)/12,Results[,x],
+sapply(2:7,function(x) points(Results[,1]+0.00001,Results[,x],
                               col=col[x-1],pch=pch[x-1])) 
 legend("topleft",c("deltaT","SREL","SREG", "SCEL", "SCEG",
                    "CDE"),col=col,pch=pch, horiz=TRUE)
+dev.off()
+
+quartz("",6,6,type="pdf",
+       file=paste(ResultsFolder,i,"Test2.pdf",sep=""))
+plot(Results$CDE,Results$Delta)
+abline(0,1)
 dev.off()
 
 #small additional analysis showing that stress increasingly filtered out species doing bad in ref site
 plot(Results$Stress,Results$Lost)
 #small additional analysis showing that stress increasingly led to appearance of species doing good in tox site
 plot(Results$Stress,Results$Gain)
-
-
 
 
 
