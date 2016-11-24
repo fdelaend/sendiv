@@ -1,6 +1,6 @@
 require(lattice)
 
-i <- 8 #study considered
+i <- 7 #study considered
 ResultsFolder <- "/Users/frederik/Documents/results/sendiv/" #results folder
 
 #1. Parameters #####################################################################
@@ -45,7 +45,7 @@ Price <- function(tox, ref)
   zc <- mean(ref[c(1:sc)])
   z_c<- mean(tox[c(1:sc)])
 
-  #PRICE EQUATIONS
+  #PRICE EQUATION TERMS
   SREL <- (sc-s)*z
   SREG <- (s_-sc)*z_
   SCEL <- sc*(zc-z)
@@ -94,6 +94,21 @@ colnames(VolumeData) <- c("Treat", "Time", "Replicate", Genera)
 #...and identify stress levels
 Ind <- which((VolumeData[,"Time"]>=StartDates[i])&(VolumeData[,"Time"]<=EndDates[i]))
 VolumeDataSelect <- VolumeData[Ind,]
+#...test if measured EF and EF estimated based on biovolumes match
+if ("EF" %in% colnames(CountData))
+{
+  EFObserved <- CountData[Ind, "EF"]
+  EFObsVsEst <- cbind(VolumeDataSelect[,c(1:3)], 
+                      EFPredicted=rowSums(VolumeDataSelect[,c(4:ncol(VolumeDataSelect))]), 
+                      EFObserved)
+  
+  quartz("",6,6,type="pdf",
+         file=paste(ResultsFolder,i,"EFObsPred.pdf",sep=""))
+  print(xyplot(log10(EFPredicted)~log10(EFObserved), 
+         groups=Treat, data=EFObsVsEst, auto.key = T))
+  dev.off()
+}
+
 #Make average densities over time
 Key <- paste(VolumeDataSelect$Treat,
              VolumeDataSelect$Replicate,sep="") #to use to make averages - unique combi of cosm and treat
