@@ -1,20 +1,30 @@
 require(lattice)
 
-i <- 4 #study considered
+i <- 8 #study considered
 ResultsFolder <- "/Users/frederik/Documents/results/sendiv/" #results folder
 
 #1. Parameters #####################################################################
 Folder            <- c("~/Dropbox/sendiv/Hartgers/",
                        "~/Dropbox/sendiv/Brock/",
                        "~/Dropbox/sendiv/Roessink/",
-                       "~/Dropbox/sendiv/VandenBrink/") #Folder with biovolume and count data
-CountCols         <- c(4,4,7,4)                       #Counts in raw data start at this column
-Time              <- c("Week", "week", "week", "week")            #Name used to indicate time in count data
-StartDates        <- c(1, 9, 1, 1)                      #Average densities are calculated for Time>= this time
-EndDates          <- c(4, 22, 10, 11)                     #...and for Time<= this time
-Treat             <- c("Treatment", "Treatment", "treatment", "Treatment")                  #Name used to indicate trt level in raw data
-Replicate         <- c("Replicate", "Replicate", "replica", "Replicate")                  #Name used to indicate cosm in raw data
-ControlTreat      <- c(1,1,0.000,1)                            #Code used for control treatment
+                       "~/Dropbox/sendiv/VandenBrink/",
+                       "~/Dropbox/sendiv/md2/",
+                       "~/Dropbox/sendiv/md3/",
+                       "~/Dropbox/sendiv/geest/",
+                       "~/Dropbox/sendiv/pvdb/") #Folder with biovolume and count data
+CountCols         <- c(4,4,7,4,7,6,6,5)                       #Counts in raw data start at this column
+Time              <- c("Week", "week", "week", 
+                       "week", "Days.p.a.", "Days.p.a.",
+                       "Week", "Week")            #Name used to indicate time in count data
+StartDates        <- c(1, 9, 1, 1, 1, 1, 1, 1)                      #Average densities are calculated for Time>= this time
+EndDates          <- c(4, 22, 10, 11, 21, 24, 11, 4)                     #...and for Time<= this time
+Treat             <- c("Treatment", "Treatment", "treatment", 
+                       "Treatment", "Treatment", "Treatment",
+                       "Treatment", "Treatment")                  #Name used to indicate trt level in raw data
+Replicate         <- c("Replicate", "Replicate", "replica", 
+                       "Replicate", "Replicate", "Replicate",
+                       "Replicate", "Replicate")                  #Name used to indicate cosm in raw data
+ControlTreat      <- c(1,1,0.000,1,1,1,1,1)                            #Code used for control treatment
 
 #2. Function for partition #####################################################################
 Price <- function(tox, ref)
