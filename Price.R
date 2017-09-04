@@ -27,7 +27,7 @@ EndDates          <- c(4, #22,
 Treat             <- c("Treatment", #"Treatment", 
                        "treatment", #"Treatment", 
                        "Treatment", "Treatment",
-                       "Treatment", "Treatment")                  #Name used to indicate trt level in raw data
+                       "Treatment", "Treatment")                  #Name used to indicate treatment level in raw data
 Replicate         <- c("Replicate", #"Replicate", 
                        "replica", #"Replicate", 
                        "Replicate", "Replicate",
